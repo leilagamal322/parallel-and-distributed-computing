@@ -8,7 +8,7 @@ import time
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(_file_), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from baseline_cpu_simulation import ParticleSystemCPU
 from gpu_simulation_pycuda import ParticleSystemGPU
@@ -92,7 +92,7 @@ def quick_comparison(num_particles=5000, num_frames=100):
     print("=" * 70)
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     num_particles = 5000
     num_frames = 100
     
@@ -108,4 +108,4 @@ if _name_ == "_main_":
         except ValueError:
             print(f"Invalid frame count: {sys.argv[2]}. Using default: {num_frames}")
     
-    quick_comparison(num_particles, num_frames)
+    quick_comparison(num_particles, num_frames)
