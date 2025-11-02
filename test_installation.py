@@ -97,7 +97,7 @@ def test_project_files():
         return True
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     print("=" * 50)
     print("Particle Simulation - Installation Test")
     print("=" * 50)
@@ -116,4 +116,4 @@ if _name_ == "_main_":
     else:
         print("✗ Installation test FAILED!")
         print("\nPlease fix the issues above before proceeding.")
-    print("=" * 50)
+    print("=" * 50)
