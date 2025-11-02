@@ -1,0 +1,27 @@
+# Sample Input Parameters for Particle Simulation
+# Format: parameter_name = value
+
+# Simulation Parameters
+num_particles = 5000
+gravity = 0.5
+time_step = 1.0
+fps = 60
+
+# Screen Dimensions
+width = 1200
+height = 800
+
+# Initial Particle Distribution
+initial_x_range = [0, 1200]
+initial_y_range = [0, 400]
+initial_vx_range = [-2, 2]
+initial_vy_range = [0, 2]
+
+# Physics Parameters
+collision_damping = 0.8
+boundary_bounce = true
+
+# Performance Testing
+benchmark_frames = 300
+test_particle_counts = [100, 500, 1000, 5000, 10000, 50000]
+
