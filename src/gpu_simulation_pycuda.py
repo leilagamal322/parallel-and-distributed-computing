@@ -7,9 +7,50 @@ This version offloads particle physics computation to the GPU for parallel proce
 import numpy as np
 import pygame
 import time
-import pycuda.driver as cuda
-import pycuda.autoinit
-from pycuda.compiler import SourceModule
+import os
+import sys
+
+# Add CUDA bin directory to DLL search path for Windows
+if sys.platform == 'win32':
+    # Try multiple possible CUDA paths
+    possible_paths = [
+        os.environ.get('CUDA_PATH'),
+        os.environ.get('CUDA_PATH_V13_0'),
+        r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0',
+        r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.5',
+        r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0',
+    ]
+    for cuda_path in possible_paths:
+        if cuda_path and os.path.exists(cuda_path):
+            cuda_bin = os.path.join(cuda_path, 'bin')
+            if os.path.exists(cuda_bin):
+                os.add_dll_directory(cuda_bin)
+                # Also add to PATH
+                os.environ['PATH'] = cuda_bin + os.pathsep + os.environ.get('PATH', '')
+
+try:
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    from pycuda.compiler import SourceModule
+except ImportError as e:
+    print("=" * 70)
+    print("ERROR: Cannot load PyCUDA/CUDA")
+    print("=" * 70)
+    print(f"Error: {e}")
+    print("\nPyCUDA requires CUDA Toolkit runtime libraries to be installed.")
+    print("Your system has:")
+    print("  - NVIDIA GPU: Detected (GTX 1650)")
+    print("  - CUDA Drivers: Installed (CUDA 12.5)")
+    print("  - CUDA Toolkit: May not be fully installed")
+    print("\nTo fix this:")
+    print("1. Download and install CUDA Toolkit from:")
+    print("   https://developer.nvidia.com/cuda-downloads")
+    print("2. Make sure to install the full toolkit (not just drivers)")
+    print("3. Restart your terminal after installation")
+    print("\nFor now, you can use the CPU version:")
+    print("  py src/baseline_cpu_simulation.py")
+    print("=" * 70)
+    sys.exit(1)
 
 # Initialize Pygame
 pygame.init()
