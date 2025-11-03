@@ -164,28 +164,53 @@ def run_simulation(num_particles=1000, max_frames=None, profile=False):
     return None
 
 
-def benchmark_cpu(num_particles_list=[100, 500, 1000, 5000, 10000], num_frames=300):
+def benchmark_cpu(num_particles_list=[100, 500, 1000, 5000, 10000], num_frames=300, include_cache_analysis=False):
     """
     Benchmark CPU performance for different particle counts.
     
     Args:
         num_particles_list: List of particle counts to test
         num_frames: Number of frames to run for each test
+        include_cache_analysis: If True, include cache analysis in results
     
     Returns:
-        Dictionary mapping particle counts to average update times (ms)
+        Dictionary mapping particle counts to average update times (ms) or tuple (time, cache_analysis)
     """
     results = {}
+    cache_results = {}
     
     print("=" * 60)
     print("CPU Performance Benchmark")
     print("=" * 60)
+    
+    # Import cache analyzer if needed
+    cache_analyzer = None
+    if include_cache_analysis:
+        try:
+            import sys
+            import os
+            # Add current directory to path for cache_analysis import
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from cache_analysis import CacheAnalyzer
+            cache_analyzer = CacheAnalyzer()
+            print("Cache analysis enabled")
+        except ImportError as e:
+            print(f"Warning: Cache analysis module not available ({e}), skipping cache profiling")
+            include_cache_analysis = False
     
     for num_particles in num_particles_list:
         print(f"\nTesting with {num_particles} particles...")
         
         # Initialize system
         particle_system = ParticleSystemCPU(num_particles)
+        
+        # Perform cache analysis if requested
+        cache_analysis = None
+        if include_cache_analysis and cache_analyzer:
+            cache_analysis = cache_analyzer.analyze_cache_performance(particle_system, num_particles)
+            cb = cache_analysis['cache_behavior']
+            print(f"  Cache: Working set = {cb['working_set_size_kb']:.2f} KB, "
+                  f"Hit rate = {cb['overall_hit_rate']*100:.1f}%")
         
         # Warm-up run
         for _ in range(10):
@@ -201,10 +226,14 @@ def benchmark_cpu(num_particles_list=[100, 500, 1000, 5000, 10000], num_frames=3
         
         avg_time = total_time / num_frames
         results[num_particles] = avg_time
+        if cache_analysis:
+            cache_results[num_particles] = cache_analysis
         
         print(f"  Average update time: {avg_time:.4f} ms per frame")
         print(f"  Total time for {num_frames} frames: {total_time:.2f} ms")
     
+    if include_cache_analysis:
+        return results, cache_results
     return results
 
 
