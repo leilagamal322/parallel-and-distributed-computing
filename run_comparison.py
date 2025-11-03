@@ -109,3 +109,6 @@ if __name__ == "__main__":
             print(f"Invalid frame count: {sys.argv[2]}. Using default: {num_frames}")
     
     quick_comparison(num_particles, num_frames)
+
+    
+
