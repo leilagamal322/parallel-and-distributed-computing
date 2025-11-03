@@ -27,7 +27,7 @@ BLUE = (100, 150, 255)
 class ParticleSystemCPU:
     """Sequential CPU-based particle system."""
     
-    def _init_(self, num_particles=1000):
+    def __init__(self, num_particles=1000):
         """
         Initialize particle system.
         
@@ -208,7 +208,7 @@ def benchmark_cpu(num_particles_list=[100, 500, 1000, 5000, 10000], num_frames=3
     return results
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     import sys
     
     # Default: run interactive simulation
