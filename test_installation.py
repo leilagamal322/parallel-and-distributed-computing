@@ -16,51 +16,51 @@ def test_imports():
     # Test NumPy
     try:
         import numpy as np
-        print("✓ NumPy:", np._version_)
+        print("OK NumPy:", np.__version__)
     except ImportError as e:
-        print("✗ NumPy: FAILED -", str(e))
+        print("X NumPy: FAILED -", str(e))
         failed.append("numpy")
     
     # Test Pygame
     try:
         import pygame
-        print("✓ Pygame:", pygame.version.ver)
+        print("OK Pygame:", pygame.version.ver)
     except ImportError as e:
-        print("✗ Pygame: FAILED -", str(e))
+        print("X Pygame: FAILED -", str(e))
         failed.append("pygame")
     
     # Test PyCUDA
     try:
         import pycuda.driver as cuda
         import pycuda.autoinit
-        print("✓ PyCUDA: OK")
+        print("OK PyCUDA: OK")
         print(f"  GPU Device: {cuda.Device(0).name()}")
         print(f"  Compute Capability: {cuda.Device(0).compute_capability()}")
     except ImportError as e:
-        print("✗ PyCUDA: FAILED -", str(e))
+        print("X PyCUDA: FAILED -", str(e))
         print("  Note: PyCUDA requires CUDA Toolkit to be installed")
         failed.append("pycuda")
     except Exception as e:
-        print("✗ PyCUDA: FAILED -", str(e))
+        print("X PyCUDA: FAILED -", str(e))
         failed.append("pycuda")
     
     # Test Matplotlib
     try:
         import matplotlib
-        print("✓ Matplotlib:", matplotlib._version_)
+        print("OK Matplotlib:", matplotlib.__version__)
     except ImportError as e:
-        print("✗ Matplotlib: FAILED -", str(e))
+        print("X Matplotlib: FAILED -", str(e))
         failed.append("matplotlib")
     
     print("-" * 50)
     
     if failed:
-        print(f"\n✗ Some packages failed to import: {', '.join(failed)}")
+        print(f"\nX Some packages failed to import: {', '.join(failed)}")
         print("\nTo install missing packages, run:")
         print("  pip install -r requirements.txt")
         return False
     else:
-        print("\n✓ All required packages are installed correctly!")
+        print("\nOK All required packages are installed correctly!")
         return True
 
 
@@ -82,18 +82,18 @@ def test_project_files():
     missing = []
     for file in required_files:
         if os.path.exists(file):
-            print(f"✓ {file}")
+            print(f"OK {file}")
         else:
-            print(f"✗ {file} - MISSING")
+            print(f"X {file} - MISSING")
             missing.append(file)
     
     print("-" * 50)
     
     if missing:
-        print(f"\n✗ Some files are missing: {len(missing)} file(s)")
+        print(f"\nX Some files are missing: {len(missing)} file(s)")
         return False
     else:
-        print("\n✓ All project files exist!")
+        print("\nOK All project files exist!")
         return True
 
 
@@ -108,12 +108,12 @@ if __name__ == "__main__":
     
     print("\n" + "=" * 50)
     if imports_ok and files_ok:
-        print("✓ Installation test PASSED!")
+        print("OK Installation test PASSED!")
         print("\nYou can now run:")
         print("  python src/baseline_cpu_simulation.py")
         print("  python src/gpu_simulation_pycuda.py")
         print("  python src/performance_analysis.py")
     else:
-        print("✗ Installation test FAILED!")
+        print("X Installation test FAILED!")
         print("\nPlease fix the issues above before proceeding.")
     print("=" * 50)

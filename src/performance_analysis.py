@@ -11,7 +11,7 @@ import sys
 import os
 
 # Add parent directory to path to import simulation modules
-sys.path.insert(0, os.path.dirname(os.path.abspath(_file_)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from baseline_cpu_simulation import ParticleSystemCPU, benchmark_cpu
 from gpu_simulation_pycuda import ParticleSystemGPU, benchmark_gpu
@@ -306,7 +306,7 @@ def generate_report(results):
     print(f"\nPerformance report saved to: {report_path}")
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     # Ensure plots directory exists
     os.makedirs('plots', exist_ok=True)
     
