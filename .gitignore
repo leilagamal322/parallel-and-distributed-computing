@@ -24,7 +24,10 @@ wheels/
 venv/
 env/
 ENV/
-.venv
+.venv/
+.conda/
+pip-wheel-metadata/
+.site-packages/
 
 # IDE
 .vscode/
@@ -34,12 +37,31 @@ ENV/
 *~
 
 # Project specific
-plots/*.png
-plots/*.jpg
-*.log
+plots/
 report_performance.txt
+*.log
+*.csv
+*.dat
+*.out
+*.tmp
+*.npy
+*.pkl
+*.bin
+output/
+results/
+media/
+screenshots/
+logs/
+
+# CUDA or compiled artifacts
+*.ptx
+*.cubin
+*.dll
+*.o
+*.obj
+*.exe
 
 # OS
 .DS_Store
 Thumbs.db
-
+Desktop.ini

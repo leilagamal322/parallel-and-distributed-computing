@@ -1,7 +1,7 @@
 """
 Performance Analysis and Comparison Script
 ===========================================
-Compares CPU (sequential) vs GPU (PyCUDA) performance and generates plots.
+Compares CPU (sequential) vs OpenMP (parallel) vs GPU (PyCUDA) performance and generates plots.
 """
 
 import numpy as np
@@ -14,23 +14,40 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from baseline_cpu_simulation import ParticleSystemCPU, benchmark_cpu
-from gpu_simulation_pycuda import ParticleSystemGPU, benchmark_gpu
+
+# Try to import GPU version
+try:
+    from gpu_simulation_pycuda import ParticleSystemGPU, benchmark_gpu
+    GPU_AVAILABLE = True
+except ImportError:
+    GPU_AVAILABLE = False
+    print("Warning: GPU version not available, skipping GPU benchmarks")
+
+# Try to import OpenMP version
+try:
+    from openmp_simulation import ParticleSystemOpenMP, benchmark_openmp
+    OPENMP_AVAILABLE = True
+except (ImportError, RuntimeError) as e:
+    OPENMP_AVAILABLE = False
+    print(f"Warning: OpenMP version not available ({e}), skipping OpenMP benchmarks")
 
 
-def compare_performance(num_particles_list=[100, 500, 1000, 5000, 10000, 50000], num_frames=300, include_cache_analysis=False):
+def compare_performance(num_particles_list=[100, 500, 1000, 5000, 10000, 50000], num_frames=300, 
+                       include_cache_analysis=False, num_threads=None):
     """
-    Compare CPU and GPU performance for various particle counts.
+    Compare CPU (sequential), OpenMP (parallel), and GPU performance for various particle counts.
     
     Args:
         num_particles_list: List of particle counts to test
         num_frames: Number of frames to run for each test
         include_cache_analysis: If True, perform cache analysis for CPU benchmarks
+        num_threads: Number of threads for OpenMP (None = use default)
     
     Returns:
         Dictionary with benchmark results
     """
     print("=" * 80)
-    print("Performance Comparison: CPU vs GPU")
+    print("Performance Comparison: CPU vs OpenMP vs GPU")
     print("=" * 80)
     print(f"Testing {len(num_particles_list)} different particle counts")
     print(f"Frames per test: {num_frames}")
@@ -39,7 +56,7 @@ def compare_performance(num_particles_list=[100, 500, 1000, 5000, 10000, 50000],
     print()
     
     # Run CPU benchmarks
-    print("\n[1/2] Running CPU benchmarks...")
+    print("\n[1/3] Running CPU (Sequential) benchmarks...")
     print("-" * 80)
     cpu_benchmark_result = benchmark_cpu(num_particles_list, num_frames, include_cache_analysis=include_cache_analysis)
     
@@ -50,46 +67,72 @@ def compare_performance(num_particles_list=[100, 500, 1000, 5000, 10000, 50000],
         cpu_results = cpu_benchmark_result
         cpu_cache_results = {}
     
-    # Run GPU benchmarks
-    print("\n[2/2] Running GPU benchmarks...")
-    print("-" * 80)
-    gpu_results = benchmark_gpu(num_particles_list, num_frames)
+    # Run OpenMP benchmarks
+    openmp_results = {}
+    if OPENMP_AVAILABLE:
+        print("\n[2/3] Running OpenMP (Parallel) benchmarks...")
+        print("-" * 80)
+        openmp_results = benchmark_openmp(num_particles_list, num_frames, num_threads)
+    else:
+        print("\n[2/3] Skipping OpenMP benchmarks (not available)")
     
-    # Calculate speedup and efficiency
-    speedups = {}
-    efficiencies = {}
+    # Run GPU benchmarks
+    gpu_results = {}
+    if GPU_AVAILABLE:
+        print("\n[3/3] Running GPU benchmarks...")
+        print("-" * 80)
+        gpu_results = benchmark_gpu(num_particles_list, num_frames)
+    else:
+        print("\n[3/3] Skipping GPU benchmarks (not available)")
+    
+    # Calculate speedups
+    openmp_speedups = {}
+    gpu_speedups = {}
     
     print("\n" + "=" * 80)
     print("Performance Summary")
     print("=" * 80)
-    print(f"{'Particles':>10} | {'CPU (ms)':>12} | {'GPU (ms)':>12} | {'Speedup':>10} | {'Efficiency':>12}")
+    
+    # Create header based on available implementations
+    header = f"{'Particles':>10} | {'CPU (ms)':>12}"
+    if openmp_results:
+        header += f" | {'OpenMP (ms)':>14} | {'OMP Speedup':>13}"
+    if gpu_results:
+        header += f" | {'GPU (ms)':>12} | {'GPU Speedup':>13}"
+    print(header)
     print("-" * 80)
     
     for num_particles in num_particles_list:
-        if num_particles in cpu_results and num_particles in gpu_results:
-            cpu_time = cpu_results[num_particles]
+        if num_particles not in cpu_results:
+            continue
+        
+        cpu_time = cpu_results[num_particles]
+        row = f"{num_particles:>10} | {cpu_time:>12.4f}"
+        
+        # OpenMP comparison
+        if num_particles in openmp_results and openmp_results[num_particles] is not None:
+            openmp_time = openmp_results[num_particles]
+            openmp_speedup = cpu_time / openmp_time if openmp_time > 0 else 0
+            openmp_speedups[num_particles] = openmp_speedup
+            row += f" | {openmp_time:>14.4f} | {openmp_speedup:>13.2f}x"
+        elif openmp_results:
+            row += f" | {'N/A':>14} | {'N/A':>13}"
+        
+        # GPU comparison
+        if num_particles in gpu_results:
             gpu_time = gpu_results[num_particles][0] + gpu_results[num_particles][1]  # Update + transfer
-            
-            speedup = cpu_time / gpu_time if gpu_time > 0 else 0
-            
-            # Estimate number of GPU cores (streaming multiprocessors * cores per SM)
-            # This is a rough estimate; actual efficiency calculation would need exact GPU specs
-            # For visualization, we'll use number of particles as proxy for parallelization
-            theoretical_max_parallelism = min(num_particles, 10000)  # Rough estimate
-            efficiency = speedup / theoretical_max_parallelism if theoretical_max_parallelism > 0 else 0
-            efficiency_percent = efficiency * 100  # For display only
-            
-            speedups[num_particles] = speedup
-            efficiencies[num_particles] = speedup  # Store speedup for efficiency plot
-            
-            print(f"{num_particles:>10} | {cpu_time:>12.4f} | {gpu_time:>12.4f} | "
-                  f"{speedup:>10.2f}x | {efficiency_percent:>11.2f}%")
+            gpu_speedup = cpu_time / gpu_time if gpu_time > 0 else 0
+            gpu_speedups[num_particles] = gpu_speedup
+            row += f" | {gpu_time:>12.4f} | {gpu_speedup:>13.2f}x"
+        
+        print(row)
     
     result_dict = {
         'cpu_results': cpu_results,
+        'openmp_results': openmp_results,
         'gpu_results': gpu_results,
-        'speedups': speedups,
-        'efficiencies': efficiencies,
+        'openmp_speedups': openmp_speedups,
+        'gpu_speedups': gpu_speedups,
         'particle_counts': num_particles_list
     }
     
@@ -102,40 +145,72 @@ def compare_performance(num_particles_list=[100, 500, 1000, 5000, 10000, 50000],
 
 def plot_speedup(results, save_path='plots/speedup_vs_particles.png'):
     """
-    Plot speedup vs number of particles.
+    Plot speedup vs number of particles for OpenMP and GPU.
     
     Args:
         results: Dictionary with benchmark results
         save_path: Path to save the plot
     """
     particle_counts = []
-    speedups = []
+    openmp_speedups = []
+    gpu_speedups = []
     
     for num_particles in results['particle_counts']:
-        if num_particles in results['speedups']:
-            particle_counts.append(num_particles)
-            speedups.append(results['speedups'][num_particles])
+        particle_counts.append(num_particles)
+        
+        if num_particles in results['openmp_speedups']:
+            openmp_speedups.append(results['openmp_speedups'][num_particles])
+        else:
+            openmp_speedups.append(None)
+        
+        if num_particles in results['gpu_speedups']:
+            gpu_speedups.append(results['gpu_speedups'][num_particles])
+        else:
+            gpu_speedups.append(None)
     
-    plt.figure(figsize=(10, 6))
-    plt.plot(particle_counts, speedups, 'b-o', linewidth=2, markersize=8, label='GPU Speedup')
+    plt.figure(figsize=(12, 7))
+    
+    # Filter out None values for plotting
+    openmp_valid = [(p, s) for p, s in zip(particle_counts, openmp_speedups) if s is not None]
+    gpu_valid = [(p, s) for p, s in zip(particle_counts, gpu_speedups) if s is not None]
+    
+    if openmp_valid:
+        p_vals, s_vals = zip(*openmp_valid)
+        plt.plot(p_vals, s_vals, 'g-o', linewidth=2, markersize=8, label='OpenMP Speedup')
+    
+    if gpu_valid:
+        p_vals, s_vals = zip(*gpu_valid)
+        plt.plot(p_vals, s_vals, 'b-s', linewidth=2, markersize=8, label='GPU Speedup')
+    
     plt.axhline(y=1.0, color='r', linestyle='--', linewidth=1, label='Baseline (CPU)')
     plt.xlabel('Number of Particles', fontsize=12)
-    plt.ylabel('Speedup (CPU Time / GPU Time)', fontsize=12)
-    plt.title('Performance Speedup: GPU vs CPU Particle Simulation', fontsize=14, fontweight='bold')
+    plt.ylabel('Speedup (CPU Time / Parallel Time)', fontsize=12)
+    plt.title('Performance Speedup: OpenMP and GPU vs Sequential CPU', fontsize=14, fontweight='bold')
     plt.grid(True, alpha=0.3)
     plt.legend(fontsize=11)
     plt.xscale('log')
     plt.yscale('log')
     
     # Add annotations for significant speedups
-    for i, (count, speedup) in enumerate(zip(particle_counts, speedups)):
-        if speedup > 5:
-            plt.annotate(f'{speedup:.1f}x', 
-                        xy=(count, speedup), 
-                        xytext=(10, 10), 
-                        textcoords='offset points',
-                        fontsize=9,
-                        bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.5))
+    if openmp_valid:
+        for count, speedup in openmp_valid:
+            if speedup > 3:
+                plt.annotate(f'OpenMP: {speedup:.1f}x', 
+                            xy=(count, speedup), 
+                            xytext=(10, 10), 
+                            textcoords='offset points',
+                            fontsize=9,
+                            bbox=dict(boxstyle='round,pad=0.3', facecolor='lightgreen', alpha=0.5))
+    
+    if gpu_valid:
+        for count, speedup in gpu_valid:
+            if speedup > 5:
+                plt.annotate(f'GPU: {speedup:.1f}x', 
+                            xy=(count, speedup), 
+                            xytext=(10, -20), 
+                            textcoords='offset points',
+                            fontsize=9,
+                            bbox=dict(boxstyle='round,pad=0.3', facecolor='lightblue', alpha=0.5))
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -145,27 +220,50 @@ def plot_speedup(results, save_path='plots/speedup_vs_particles.png'):
 
 def plot_efficiency(results, save_path='plots/efficiency_vs_particles.png'):
     """
-    Plot efficiency vs number of particles.
-    Efficiency is calculated relative to ideal parallelization.
+    Plot efficiency vs number of particles for OpenMP and GPU.
+    Efficiency shows how well parallelization scales.
     
     Args:
         results: Dictionary with benchmark results
         save_path: Path to save the plot
     """
+    # This plot shows speedup (which is a measure of efficiency)
+    # OpenMP efficiency could be calculated as speedup / num_threads
     particle_counts = []
-    efficiencies = []
+    openmp_efficiencies = []
+    gpu_efficiencies = []
     
     for num_particles in results['particle_counts']:
-        if num_particles in results['efficiencies']:
-            particle_counts.append(num_particles)
-            efficiencies.append(results['efficiencies'][num_particles])
+        particle_counts.append(num_particles)
+        
+        if num_particles in results['openmp_speedups']:
+            openmp_efficiencies.append(results['openmp_speedups'][num_particles])
+        else:
+            openmp_efficiencies.append(None)
+        
+        if num_particles in results['gpu_speedups']:
+            gpu_efficiencies.append(results['gpu_speedups'][num_particles])
+        else:
+            gpu_efficiencies.append(None)
     
-    plt.figure(figsize=(10, 6))
-    plt.plot(particle_counts, efficiencies, 'g-s', linewidth=2, markersize=8, label='GPU Speedup')
-    plt.axhline(y=1.0, color='r', linestyle='--', linewidth=1, label='Baseline')
+    plt.figure(figsize=(12, 7))
+    
+    # Filter out None values
+    openmp_valid = [(p, e) for p, e in zip(particle_counts, openmp_efficiencies) if e is not None]
+    gpu_valid = [(p, e) for p, e in zip(particle_counts, gpu_efficiencies) if e is not None]
+    
+    if openmp_valid:
+        p_vals, e_vals = zip(*openmp_valid)
+        plt.plot(p_vals, e_vals, 'g-^', linewidth=2, markersize=8, label='OpenMP Speedup')
+    
+    if gpu_valid:
+        p_vals, e_vals = zip(*gpu_valid)
+        plt.plot(p_vals, e_vals, 'b-s', linewidth=2, markersize=8, label='GPU Speedup')
+    
+    plt.axhline(y=1.0, color='r', linestyle='--', linewidth=1, label='Baseline (CPU)')
     plt.xlabel('Number of Particles', fontsize=12)
     plt.ylabel('Speedup (Relative Performance Gain)', fontsize=12)
-    plt.title('Efficiency: GPU Performance Scaling with Particle Count', fontsize=14, fontweight='bold')
+    plt.title('Performance Scaling: OpenMP and GPU vs Sequential CPU', fontsize=14, fontweight='bold')
     plt.grid(True, alpha=0.3)
     plt.legend(fontsize=11)
     plt.xscale('log')
@@ -176,9 +274,9 @@ def plot_efficiency(results, save_path='plots/efficiency_vs_particles.png'):
     plt.close()
 
 
-def plot_comparison(results, save_path='plots/cpu_vs_gpu_comparison.png'):
+def plot_comparison(results, save_path='plots/cpu_vs_openmp_vs_gpu_comparison.png'):
     """
-    Plot direct comparison of CPU and GPU times.
+    Plot direct comparison of CPU, OpenMP, and GPU times.
     
     Args:
         results: Dictionary with benchmark results
@@ -186,31 +284,67 @@ def plot_comparison(results, save_path='plots/cpu_vs_gpu_comparison.png'):
     """
     particle_counts = []
     cpu_times = []
+    openmp_times = []
     gpu_times = []
     gpu_compute_times = []
     gpu_transfer_times = []
     
     for num_particles in results['particle_counts']:
-        if num_particles in results['cpu_results'] and num_particles in results['gpu_results']:
-            particle_counts.append(num_particles)
-            cpu_times.append(results['cpu_results'][num_particles])
-            
+        if num_particles not in results['cpu_results']:
+            continue
+        
+        particle_counts.append(num_particles)
+        cpu_times.append(results['cpu_results'][num_particles])
+        
+        # OpenMP times
+        if num_particles in results['openmp_results'] and results['openmp_results'][num_particles] is not None:
+            openmp_times.append(results['openmp_results'][num_particles])
+        else:
+            openmp_times.append(None)
+        
+        # GPU times
+        if num_particles in results['gpu_results']:
             gpu_update, gpu_transfer = results['gpu_results'][num_particles]
             gpu_total = gpu_update + gpu_transfer
             gpu_times.append(gpu_total)
             gpu_compute_times.append(gpu_update)
             gpu_transfer_times.append(gpu_transfer)
+        else:
+            gpu_times.append(None)
+            gpu_compute_times.append(None)
+            gpu_transfer_times.append(None)
     
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(14, 8))
     
     plt.plot(particle_counts, cpu_times, 'r-o', linewidth=2, markersize=8, label='CPU (Sequential)')
-    plt.plot(particle_counts, gpu_times, 'b-s', linewidth=2, markersize=8, label='GPU (Total: Compute + Transfer)')
-    plt.plot(particle_counts, gpu_compute_times, 'b--', linewidth=1.5, label='GPU Compute Only')
-    plt.plot(particle_counts, gpu_transfer_times, 'c--', linewidth=1.5, label='GPU Transfer Overhead')
+    
+    # Plot OpenMP if available
+    openmp_valid = [(p, t) for p, t in zip(particle_counts, openmp_times) if t is not None]
+    if openmp_valid:
+        p_vals, t_vals = zip(*openmp_valid)
+        plt.plot(p_vals, t_vals, 'g-^', linewidth=2, markersize=8, label='OpenMP (Parallel)')
+    
+    # Plot GPU if available
+    gpu_valid = [(p, t) for p, t in zip(particle_counts, gpu_times) if t is not None]
+    if gpu_valid:
+        p_vals, t_vals = zip(*gpu_valid)
+        plt.plot(p_vals, t_vals, 'b-s', linewidth=2, markersize=8, label='GPU (Total: Compute + Transfer)')
+        
+        # Plot GPU compute and transfer separately
+        gpu_comp_valid = [(p, t) for p, t in zip(particle_counts, gpu_compute_times) if t is not None]
+        gpu_trans_valid = [(p, t) for p, t in zip(particle_counts, gpu_transfer_times) if t is not None]
+        
+        if gpu_comp_valid:
+            p_vals, t_vals = zip(*gpu_comp_valid)
+            plt.plot(p_vals, t_vals, 'b--', linewidth=1.5, label='GPU Compute Only')
+        
+        if gpu_trans_valid:
+            p_vals, t_vals = zip(*gpu_trans_valid)
+            plt.plot(p_vals, t_vals, 'c--', linewidth=1.5, label='GPU Transfer Overhead')
     
     plt.xlabel('Number of Particles', fontsize=12)
     plt.ylabel('Time per Frame (ms)', fontsize=12)
-    plt.title('CPU vs GPU Performance Comparison', fontsize=14, fontweight='bold')
+    plt.title('CPU vs OpenMP vs GPU Performance Comparison', fontsize=14, fontweight='bold')
     plt.grid(True, alpha=0.3)
     plt.legend(fontsize=11)
     plt.xscale('log')
@@ -402,7 +536,7 @@ def plot_cache_efficiency(results, save_path='plots/cache_efficiency.png'):
 
 def analyze_overheads(results):
     """
-    Analyze and report overhead components.
+    Analyze and report overhead components for GPU and OpenMP.
     
     Args:
         results: Dictionary with benchmark results
@@ -411,21 +545,45 @@ def analyze_overheads(results):
     print("Overhead Analysis")
     print("=" * 80)
     
-    print(f"\n{'Particles':>10} | {'GPU Compute':>15} | {'Transfer':>15} | {'Transfer %':>12}")
-    print("-" * 80)
+    # GPU overhead analysis
+    if results.get('gpu_results'):
+        print("\nGPU Overhead Analysis:")
+        print(f"{'Particles':>10} | {'GPU Compute':>15} | {'Transfer':>15} | {'Transfer %':>12}")
+        print("-" * 80)
+        
+        for num_particles in results['particle_counts']:
+            if num_particles in results['gpu_results']:
+                gpu_update, gpu_transfer = results['gpu_results'][num_particles]
+                gpu_total = gpu_update + gpu_transfer
+                transfer_percent = (gpu_transfer / gpu_total * 100) if gpu_total > 0 else 0
+                
+                print(f"{num_particles:>10} | {gpu_update:>15.4f} | {gpu_transfer:>15.4f} | {transfer_percent:>11.2f}%")
+        
+        print("\nGPU Key Observations:")
+        print("- Transfer overhead represents data movement cost between CPU and GPU")
+        print("- As particle count increases, compute time dominates")
+        print("- For small particle counts, transfer overhead can be significant")
     
-    for num_particles in results['particle_counts']:
-        if num_particles in results['gpu_results']:
-            gpu_update, gpu_transfer = results['gpu_results'][num_particles]
-            gpu_total = gpu_update + gpu_transfer
-            transfer_percent = (gpu_transfer / gpu_total * 100) if gpu_total > 0 else 0
-            
-            print(f"{num_particles:>10} | {gpu_update:>15.4f} | {gpu_transfer:>15.4f} | {transfer_percent:>11.2f}%")
-    
-    print("\nKey Observations:")
-    print("- Transfer overhead represents data movement cost between CPU and GPU")
-    print("- As particle count increases, compute time dominates")
-    print("- For small particle counts, transfer overhead can be significant")
+    # OpenMP overhead analysis (threading overhead)
+    if results.get('openmp_results'):
+        print("\nOpenMP Performance Analysis:")
+        print(f"{'Particles':>10} | {'CPU Time':>15} | {'OpenMP Time':>15} | {'Speedup':>12}")
+        print("-" * 80)
+        
+        for num_particles in results['particle_counts']:
+            if (num_particles in results['cpu_results'] and 
+                num_particles in results['openmp_results'] and 
+                results['openmp_results'][num_particles] is not None):
+                cpu_time = results['cpu_results'][num_particles]
+                openmp_time = results['openmp_results'][num_particles]
+                speedup = results['openmp_speedups'].get(num_particles, 0)
+                
+                print(f"{num_particles:>10} | {cpu_time:>15.4f} | {openmp_time:>15.4f} | {speedup:>12.2f}x")
+        
+        print("\nOpenMP Key Observations:")
+        print("- OpenMP uses shared-memory parallelism with minimal overhead")
+        print("- Speedup scales with number of CPU cores and thread count")
+        print("- Better performance than sequential CPU for larger particle counts")
 
 
 def generate_report(results):
@@ -440,48 +598,80 @@ def generate_report(results):
     with open(report_path, 'w') as f:
         f.write("=" * 80 + "\n")
         f.write("Performance Analysis Report\n")
-        f.write("Physics-Based Particle Simulation: CPU vs GPU\n")
+        f.write("Physics-Based Particle Simulation: CPU vs OpenMP vs GPU\n")
         f.write("=" * 80 + "\n\n")
         
         f.write("1. EXECUTIVE SUMMARY\n")
         f.write("-" * 80 + "\n")
-        f.write("This report compares sequential CPU implementation vs GPU-accelerated\n")
-        f.write("implementation using PyCUDA for parallel particle simulation.\n\n")
+        f.write("This report compares sequential CPU implementation vs OpenMP parallel\n")
+        f.write("implementation vs GPU-accelerated implementation for particle simulation.\n\n")
         
         f.write("2. METHODOLOGY\n")
         f.write("-" * 80 + "\n")
         f.write("- Sequential CPU version: NumPy-based single-threaded computation\n")
+        f.write("- OpenMP version: Shared-memory parallel processing using C++/Python\n")
         f.write("- GPU version: PyCUDA with parallel CUDA kernels\n")
         f.write("- Benchmark: Multiple particle counts tested over 300 frames each\n")
         f.write("- Metrics: Average time per frame, speedup, efficiency\n\n")
         
         f.write("3. RESULTS\n")
         f.write("-" * 80 + "\n")
-        f.write(f"{'Particles':>10} | {'CPU (ms)':>12} | {'GPU Total (ms)':>15} | {'Speedup':>10}\n")
+        
+        # Create header
+        header = f"{'Particles':>10} | {'CPU (ms)':>12}"
+        if results.get('openmp_results'):
+            header += f" | {'OpenMP (ms)':>14} | {'OMP Speedup':>13}"
+        if results.get('gpu_results'):
+            header += f" | {'GPU Total (ms)':>15} | {'GPU Speedup':>13}"
+        f.write(header + "\n")
         f.write("-" * 80 + "\n")
         
         for num_particles in results['particle_counts']:
-            if num_particles in results['cpu_results'] and num_particles in results['speedups']:
-                cpu_time = results['cpu_results'][num_particles]
+            if num_particles not in results['cpu_results']:
+                continue
+            
+            cpu_time = results['cpu_results'][num_particles]
+            row = f"{num_particles:>10} | {cpu_time:>12.4f}"
+            
+            # OpenMP
+            if (num_particles in results.get('openmp_results', {}) and 
+                results['openmp_results'][num_particles] is not None):
+                openmp_time = results['openmp_results'][num_particles]
+                openmp_speedup = results['openmp_speedups'].get(num_particles, 0)
+                row += f" | {openmp_time:>14.4f} | {openmp_speedup:>13.2f}x"
+            
+            # GPU
+            if num_particles in results.get('gpu_results', {}):
                 gpu_time = results['gpu_results'][num_particles][0] + results['gpu_results'][num_particles][1]
-                speedup = results['speedups'][num_particles]
-                
-                f.write(f"{num_particles:>10} | {cpu_time:>12.4f} | {gpu_time:>15.4f} | {speedup:>10.2f}x\n")
+                gpu_speedup = results['gpu_speedups'].get(num_particles, 0)
+                row += f" | {gpu_time:>15.4f} | {gpu_speedup:>13.2f}x"
+            
+            f.write(row + "\n")
         
         f.write("\n4. OVERHEAD ANALYSIS\n")
         f.write("-" * 80 + "\n")
-        f.write("GPU execution consists of:\n")
-        f.write("  - Compute time: Actual parallel particle updates on GPU\n")
-        f.write("  - Transfer time: Data movement between CPU and GPU memory\n\n")
         
-        for num_particles in results['particle_counts']:
-            if num_particles in results['gpu_results']:
-                gpu_update, gpu_transfer = results['gpu_results'][num_particles]
-                gpu_total = gpu_update + gpu_transfer
-                transfer_percent = (gpu_transfer / gpu_total * 100) if gpu_total > 0 else 0
-                
-                f.write(f"{num_particles} particles: Compute={gpu_update:.4f} ms, "
-                       f"Transfer={gpu_transfer:.4f} ms ({transfer_percent:.1f}%)\n")
+        # OpenMP overhead
+        if results.get('openmp_results'):
+            f.write("OpenMP Performance:\n")
+            f.write("  - Uses shared-memory parallelism with minimal data movement overhead\n")
+            f.write("  - Thread synchronization overhead is minimal for this workload\n")
+            f.write("  - Speedup scales with available CPU cores\n\n")
+        
+        # GPU overhead
+        if results.get('gpu_results'):
+            f.write("GPU execution consists of:\n")
+            f.write("  - Compute time: Actual parallel particle updates on GPU\n")
+            f.write("  - Transfer time: Data movement between CPU and GPU memory\n\n")
+            
+            for num_particles in results['particle_counts']:
+                if num_particles in results['gpu_results']:
+                    gpu_update, gpu_transfer = results['gpu_results'][num_particles]
+                    gpu_total = gpu_update + gpu_transfer
+                    transfer_percent = (gpu_transfer / gpu_total * 100) if gpu_total > 0 else 0
+                    
+                    f.write(f"{num_particles} particles: Compute={gpu_update:.4f} ms, "
+                           f"Transfer={gpu_transfer:.4f} ms ({transfer_percent:.1f}%)\n")
         
         f.write("\n5. CACHE ANALYSIS\n")
         f.write("-" * 80 + "\n")
@@ -524,10 +714,25 @@ def generate_report(results):
         
         f.write("6. KEY FINDINGS\n")
         f.write("-" * 80 + "\n")
-        f.write("- GPU acceleration shows significant speedup for large particle counts\n")
-        f.write("- Transfer overhead is most noticeable for small particle counts\n")
-        f.write("- Optimal performance achieved when computation time >> transfer time\n")
+        
+        if results.get('openmp_results'):
+            f.write("- OpenMP parallelization shows measurable speedup over sequential CPU\n")
+            f.write("- Speedup scales with number of CPU cores and thread count\n")
+            f.write("- OpenMP provides good performance without GPU transfer overhead\n")
+        
+        if results.get('gpu_results'):
+            f.write("- GPU acceleration shows significant speedup for large particle counts\n")
+            f.write("- Transfer overhead is most noticeable for small particle counts\n")
+            f.write("- Optimal performance achieved when computation time >> transfer time\n")
+        
         f.write("- Parallel efficiency scales well with increasing particle counts\n")
+        
+        # Compare OpenMP vs GPU
+        if results.get('openmp_results') and results.get('gpu_results'):
+            f.write("\nOpenMP vs GPU Comparison:\n")
+            f.write("- OpenMP: Better for moderate particle counts, no transfer overhead\n")
+            f.write("- GPU: Better for very large particle counts, higher peak performance\n")
+            f.write("- Choice depends on particle count and available hardware\n")
         
         if 'cpu_cache_results' in results and results['cpu_cache_results']:
             f.write("- Cache performance degrades as working set size exceeds cache levels\n")
@@ -538,10 +743,21 @@ def generate_report(results):
         
         f.write("7. CONCLUSIONS\n")
         f.write("-" * 80 + "\n")
-        f.write("The GPU-accelerated implementation demonstrates measurable speedup over\n")
-        f.write("the sequential CPU version, particularly for simulations with many particles.\n")
-        f.write("The parallel approach effectively leverages GPU's many-core architecture\n")
-        f.write("for independent particle updates.\n")
+        
+        if results.get('openmp_results'):
+            f.write("The OpenMP parallel implementation demonstrates measurable speedup over\n")
+            f.write("the sequential CPU version by leveraging multi-core CPU architecture.\n")
+            f.write("Shared-memory parallelism provides efficient parallelization with minimal\n")
+            f.write("overhead for particle simulation workloads.\n\n")
+        
+        if results.get('gpu_results'):
+            f.write("The GPU-accelerated implementation shows significant speedup for large\n")
+            f.write("particle counts, effectively leveraging GPU's many-core architecture.\n")
+            f.write("However, transfer overhead limits performance for smaller workloads.\n\n")
+        
+        f.write("Both parallel approaches (OpenMP and GPU) offer advantages over sequential\n")
+        f.write("CPU implementation, with the optimal choice depending on problem size and\n")
+        f.write("available hardware resources.\n")
     
     print(f"\nPerformance report saved to: {report_path}")
 
