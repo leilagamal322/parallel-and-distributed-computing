@@ -283,7 +283,9 @@ def run_simulation(num_particles=1000, num_frames=None, visualize=True):
                     if event.key == pygame.K_ESCAPE:
                         running = False
 
-        if not running and rank == 0:
+        running_flag = np.array([1 if running else 0], dtype=np.int32)
+        comm.Bcast([running_flag, MPI.INT], root=0)
+        if running_flag[0] == 0:
             break
 
         start = time.perf_counter()
@@ -333,7 +335,8 @@ def run_simulation(num_particles=1000, num_frames=None, visualize=True):
 
         frame_count += 1
         if num_frames and frame_count >= num_frames:
-            running = False
+            if rank == 0:
+                running = False
 
     local_count = ps.get_count()
     all_counts = np.empty(size, dtype=np.int32)
