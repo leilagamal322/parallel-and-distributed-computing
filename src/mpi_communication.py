@@ -1,6 +1,6 @@
 from mpi4py import MPI
 import numpy as np
-import time  # used for timing
+import time  
 
 comm = MPI.COMM_WORLD       # initialize communicator that has all ranks
 rank = comm.Get_rank()      # Rank id of each process
