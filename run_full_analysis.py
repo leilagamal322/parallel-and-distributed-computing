@@ -24,9 +24,9 @@ try:
         analyze_overheads,
         generate_report
     )
-    print("✓ Modules imported successfully")
+    print("[OK] Modules imported successfully")
 except Exception as e:
-    print(f"✗ Import error: {e}")
+    print(f"[ERROR] Import error: {e}")
     import traceback
     traceback.print_exc()
     sys.exit(1)
@@ -52,9 +52,9 @@ try:
         include_cache_analysis=False,
         num_threads=4
     )
-    print("\n✓ Benchmarks completed")
+    print("\n[OK] Benchmarks completed")
 except Exception as e:
-    print(f"✗ Benchmark error: {e}")
+    print(f"[ERROR] Benchmark error: {e}")
     import traceback
     traceback.print_exc()
     sys.exit(1)
@@ -65,15 +65,15 @@ print("Generating plots...")
 print("=" * 80)
 try:
     plot_speedup(results)
-    print("✓ Speedup plot generated")
+    print("[OK] Speedup plot generated")
     
     plot_efficiency(results)
-    print("✓ Efficiency plot generated")
+    print("[OK] Efficiency plot generated")
     
     plot_comparison(results)
-    print("✓ Comparison plot generated")
+    print("[OK] Comparison plot generated")
 except Exception as e:
-    print(f"✗ Plot error: {e}")
+    print(f"[ERROR] Plot error: {e}")
     import traceback
     traceback.print_exc()
 
@@ -83,9 +83,9 @@ print("Analyzing overheads...")
 print("=" * 80)
 try:
     analyze_overheads(results)
-    print("✓ Overhead analysis completed")
+    print("[OK] Overhead analysis completed")
 except Exception as e:
-    print(f"✗ Overhead analysis error: {e}")
+    print(f"[ERROR] Overhead analysis error: {e}")
 
 # Generate report
 print("\n" + "=" * 80)
@@ -93,17 +93,17 @@ print("Generating report...")
 print("=" * 80)
 try:
     generate_report(results)
-    print("✓ Report generated")
+    print("[OK] Report generated")
 except Exception as e:
-    print(f"✗ Report error: {e}")
+    print(f"[ERROR] Report error: {e}")
 
 print("\n" + "=" * 80)
 print("ANALYSIS COMPLETE!")
 print("=" * 80)
 print("\nGenerated files:")
-print("  📊 plots/speedup_vs_particles.png")
-print("  📊 plots/efficiency_vs_particles.png")
-print("  📊 plots/cpu_vs_openmp_vs_gpu_comparison.png")
-print("  📄 report_performance.txt")
+print("  - plots/speedup_vs_particles.png")
+print("  - plots/efficiency_vs_particles.png")
+print("  - plots/cpu_vs_openmp_vs_gpu_comparison.png")
+print("  - report_performance.txt")
 print("\nCheck these files for detailed results!")
 

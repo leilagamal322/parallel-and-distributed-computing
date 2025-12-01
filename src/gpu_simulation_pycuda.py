@@ -33,24 +33,8 @@ try:
     import pycuda.autoinit
     from pycuda.compiler import SourceModule
 except ImportError as e:
-    print("=" * 70)
-    print("ERROR: Cannot load PyCUDA/CUDA")
-    print("=" * 70)
-    print(f"Error: {e}")
-    print("\nPyCUDA requires CUDA Toolkit runtime libraries to be installed.")
-    print("Your system has:")
-    print("  - NVIDIA GPU: Detected (GTX 1650)")
-    print("  - CUDA Drivers: Installed (CUDA 12.5)")
-    print("  - CUDA Toolkit: May not be fully installed")
-    print("\nTo fix this:")
-    print("1. Download and install CUDA Toolkit from:")
-    print("   https://developer.nvidia.com/cuda-downloads")
-    print("2. Make sure to install the full toolkit (not just drivers)")
-    print("3. Restart your terminal after installation")
-    print("\nFor now, you can use the CPU version:")
-    print("  py src/baseline_cpu_simulation.py")
-    print("=" * 70)
-    sys.exit(1)
+    # Raise ImportError instead of exiting so performance scripts can handle it gracefully
+    raise ImportError(f"PyCUDA/CUDA not available: {e}")
 
 # Initialize Pygame
 pygame.init()

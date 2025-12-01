@@ -26,9 +26,9 @@ openmp_available = False
 try:
     from openmp_simulation import ParticleSystemOpenMP, benchmark_openmp
     openmp_available = True
-    print("✓ OpenMP implementation loaded")
+    print("[OK] OpenMP implementation loaded")
 except Exception as e:
-    print(f"✗ OpenMP not available: {e}")
+    print(f"[WARNING] OpenMP not available: {e}")
     print("  (Using Python threading fallback if available)")
 
 # Try to import GPU
@@ -38,9 +38,9 @@ try:
     import pycuda.driver as cuda
     from gpu_simulation_pycuda import ParticleSystemGPU, benchmark_gpu
     gpu_available = True
-    print(f"✓ GPU implementation loaded ({cuda.Device(0).name()})")
+    print(f"[OK] GPU implementation loaded ({cuda.Device(0).name()})")
 except Exception as e:
-    print(f"✗ GPU not available: {e}")
+    print(f"[WARNING] GPU not available: {e}")
 
 print()
 
@@ -250,9 +250,9 @@ if results['openmp']:
     if count > 0:
         avg_openmp_speedup /= count
         if avg_openmp_speedup > 1:
-            findings.append(f"✓ OpenMP shows {avg_openmp_speedup:.2f}x average speedup over sequential CPU")
+            findings.append(f"[OK] OpenMP shows {avg_openmp_speedup:.2f}x average speedup over sequential CPU")
         else:
-            findings.append(f"⚠ OpenMP Python fallback has overhead - true C++ OpenMP would be faster")
+            findings.append(f"[WARNING] OpenMP Python fallback has overhead - true C++ OpenMP would be faster")
 
 if results['gpu']:
     avg_gpu_speedup = 0
@@ -270,14 +270,14 @@ if results['gpu']:
     if count > 0:
         avg_gpu_speedup /= count
         if avg_gpu_speedup > 1:
-            findings.append(f"✓ GPU shows {avg_gpu_speedup:.2f}x average speedup over sequential CPU")
+            findings.append(f"[OK] GPU shows {avg_gpu_speedup:.2f}x average speedup over sequential CPU")
         else:
-            findings.append(f"⚠ GPU transfer overhead limits performance for small particle counts")
+            findings.append(f"[WARNING] GPU transfer overhead limits performance for small particle counts")
 
 if results['openmp'] and results['gpu']:
-    findings.append("✓ GPU typically outperforms OpenMP for large particle counts")
-    findings.append("✓ OpenMP has no transfer overhead, GPU has data transfer cost")
-    findings.append("✓ Optimal choice depends on particle count and hardware")
+    findings.append("[OK] GPU typically outperforms OpenMP for large particle counts")
+    findings.append("[OK] OpenMP has no transfer overhead, GPU has data transfer cost")
+    findings.append("[OK] Optimal choice depends on particle count and hardware")
 
 for finding in findings:
     print(finding)
