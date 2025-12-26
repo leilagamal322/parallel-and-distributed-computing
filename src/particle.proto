@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+service ParticleSim {
+  rpc Step (StepRequest) returns (StepResponse);
+}
+
+message StepRequest {
+  int32 steps = 1;
+}
+
+message StepResponse {
+  string replica_id = 1;
+  double latency_ms = 2;
+  int64 timestamp = 3;
+}
