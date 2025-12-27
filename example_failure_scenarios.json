@@ -1,0 +1,27 @@
+[
+  {
+    "type": "kill",
+    "replica_id": 0,
+    "time": 30.0,
+    "recover": true,
+    "recover_after": 10.0,
+    "description": "Kill replica 0 at 30s, recover after 10s"
+  },
+  {
+    "type": "kill",
+    "replica_id": 1,
+    "time": 60.0,
+    "recover": true,
+    "recover_after": 8.0,
+    "description": "Kill replica 1 at 60s, recover after 8s"
+  },
+  {
+    "type": "kill",
+    "replica_id": 2,
+    "time": 90.0,
+    "recover": true,
+    "recover_after": 12.0,
+    "description": "Kill replica 2 at 90s, recover after 12s"
+  }
+]
+

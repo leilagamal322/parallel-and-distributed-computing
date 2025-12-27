@@ -45,11 +45,11 @@ class DisruptionSimulator:
             )
             
             self.processes[port] = p
-            print(f"[SIMULATOR] ✅ Launched replica {replica_id} on port {port} (PID: {p.pid})")
+            print(f"[SIMULATOR] [OK] Launched replica {replica_id} on port {port} (PID: {p.pid})")
             return True
             
         except Exception as e:
-            print(f"[SIMULATOR] ❌ Failed to launch replica {replica_id}: {e}")
+            print(f"[SIMULATOR] [ERROR] Failed to launch replica {replica_id}: {e}")
             return False
     
     def launch_all_replicas(self):
@@ -90,7 +90,7 @@ class DisruptionSimulator:
                     process.kill()
             
             timestamp = time.strftime('%H:%M:%S')
-            print(f"[SIMULATOR] {timestamp} | 💀 KILLED replica {replica_id} on port {port}")
+            print(f"[SIMULATOR] {timestamp} | [KILLED] replica {replica_id} on port {port}")
             self.disruption_log.append({
                 'time': timestamp,
                 'action': 'KILL',
@@ -106,7 +106,7 @@ class DisruptionSimulator:
     def restart_replica(self, replica_id: int) -> bool:
         """Restart a specific replica (simulate recovery)"""
         timestamp = time.strftime('%H:%M:%S')
-        print(f"[SIMULATOR] {timestamp} | 🔄 RESTARTING replica {replica_id}...")
+        print(f"[SIMULATOR] {timestamp} | [RESTARTING] replica {replica_id}...")
         
         # Kill if still running
         self.kill_replica(replica_id)
@@ -131,7 +131,7 @@ class DisruptionSimulator:
         This tests automatic recovery without human intervention
         """
         timestamp = time.strftime('%H:%M:%S')
-        print(f"\n[SIMULATOR] {timestamp} | 🔥 TEMPORARY SHUTDOWN: replica {replica_id} for {duration}s")
+        print(f"\n[SIMULATOR] {timestamp} | [TEMPORARY SHUTDOWN] replica {replica_id} for {duration}s")
         
         self.kill_replica(replica_id)
         
@@ -147,7 +147,7 @@ class DisruptionSimulator:
         This causes connection failures
         """
         timestamp = time.strftime('%H:%M:%S')
-        print(f"\n[SIMULATOR] {timestamp} | 📦 PACKET DROP: replica {replica_id}")
+        print(f"\n[SIMULATOR] {timestamp} | [PACKET DROP] replica {replica_id}")
         
         self.kill_replica(replica_id)
         time.sleep(0.5)  # Brief outage
@@ -174,8 +174,8 @@ class DisruptionSimulator:
         print("\n[SIMULATOR] Current Status:")
         for replica_id, state in status.items():
             port = BASE_PORT + replica_id
-            emoji = "✅" if state == "RUNNING" else "❌"
-            print(f"  {emoji} Replica {replica_id} (port {port}): {state}")
+            status_marker = "[OK]" if state == "RUNNING" else "[ERROR]"
+            print(f"  {status_marker} Replica {replica_id} (port {port}): {state}")
         print()
     
     def run_disruption_scenario(self, duration: int = 60):
