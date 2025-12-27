@@ -2,7 +2,7 @@
 import subprocess
 import sys
 import time
-
+PYTHON=sys.executable
 BASE_PORT = 50051
 
 def launch_replicas(num_replicas):
@@ -15,7 +15,7 @@ def launch_replicas(num_replicas):
         print(f"→ Replica {i + 1} on port {port}")
 
         p = subprocess.Popen(
-            ["python", "server.py", str(port)]
+            [PYTHON, "server.py", str(port)]
         )
         processes.append(p)
 
